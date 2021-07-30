@@ -153,8 +153,42 @@ for i in range(5,20,1):
     r2W = np.mean(scores_W['train_r2'])
     rMSEW = abs(np.mean(scores_W['test_neg_mean_squared_error']))
 
+    
+    ### Precipitation Vs. NDVI
+    #Split the data
+    linregP = LinearRegression()
+    XP = pd.DataFrame(NDVI_p['Sum of P'])
+    yP = pd.DataFrame(NDVI_p['scaled NDVI3'])
+    
+    #Run K-fold Cross Validation (K=5)
+    scores_P = cross_validate(linregP, XP, yP, cv=5,
+                        scoring=('r2', 'neg_mean_squared_error'),
+                        return_train_score=True)
+    
+    #calculate r2 and rMSE values
+    r2P = np.mean(scores_P['train_r2'])
+    rMSEP = abs(np.mean(scores_P['test_neg_mean_squared_error']))
+    
+    ### Temperature Precipitation Vs. NDVI
+    #Split the data
+    linregTP = LinearRegression()
+    XTP = pd.DataFrame(NDVI_p[['Average of T','Sum of P']])
+    yTP = pd.DataFrame(NDVI_p['scaled NDVI3'])
+    
+    #Run K-fold Cross Validation (K=5)
+    scores_TP = cross_validate(linregTP, XTP, yTP, cv=5,
+                        scoring=('r2', 'neg_mean_squared_error'),
+                        return_train_score=True)
+    
+    #calculate adjusted r2 and rMSE values
+    n = len(NDVI_p)
+    p = 2
+    r2TP = np.mean(scores_TP['train_r2'])
+    adj_r2TP = 1-((1-r2TP)*(n-1)/(n-p-1))
+    rMSETP = abs(np.mean(scores_TP['test_neg_mean_squared_error']))
+
     ###Figure out the best model fit for each period
-    list = [r2D, r2A, r2S, r2M, r2W]
+    list = [r2D, r2A, r2S, r2M, r2W, r2P, adj_r2TP]
     best_r2 = list.index(max(list))
     
     if best_r2 == 0:
@@ -196,3 +230,20 @@ for i in range(5,20,1):
         Best.at[i-5,'rMSE'] = rMSEW
         Best.at[i-5,'Intercept'] = float(linregW.intercept_[0])
         Best.at[i-5,'Coefficient'] = float(linregW.coef_[0])
+        
+    elif best_r2 ==5:
+        linregP.fit(XP,yP)
+        Best.at[i-5,'Best Predictor(s)'] = 'Precip'
+        Best.at[i-5,'r^2'] = r2P
+        Best.at[i-5,'rMSE'] = rMSEP
+        Best.at[i-5,'Intercept'] = float(linregP.intercept_[0])
+        Best.at[i-5,'Coefficient'] = float(linregP.coef_[0])
+        
+    elif best_r2 ==6:
+        linregTP.fit(XTP,yTP)
+        Best.at[i-5,'Best Predictor(s)'] = 'Temperature + Precipitation'
+        Best.at[i-5,'r^2'] = adj_r2TP
+        Best.at[i-5,'rMSE'] = rMSETP
+        Best.at[i-5,'Intercept'] = float(linregTP.intercept_[0])
+        Best.at[i-5,'Coefficient'] = float(linregTP.coef_[0])
+        Best.at[i-5,'Coefficient 2'] = float(linregTP.coef_[1])
